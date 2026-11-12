@@ -4,8 +4,9 @@ A local-first, portfolio-quality web app that helps a content editor search a si
 find stale or problematic pages, and review AI-proposed edits. **The assistant never changes content
 without explicit human approval.**
 
-> Status: **Phase 1 — scaffold.** Health check only. Content, tools, UI, and the mock agent arrive in
-> later phases (see [docs/BUILD_PROMPTS.md](docs/BUILD_PROMPTS.md)).
+> Status: **Phase 2 — content repository.** SQLite-backed content with 40 seeded pages and
+> list/search/detail endpoints. Audit tools, UI, and the mock agent arrive in later phases
+> (see [docs/BUILD_PROMPTS.md](docs/BUILD_PROMPTS.md)).
 
 ## Architecture
 
@@ -17,6 +18,9 @@ Browser ──► Next.js (frontend, :3000) ──/api/* proxy──► FastAPI 
   (`frontend/next.config.ts`), so the backend URL and any future model keys stay server-side.
 - Backend layout follows [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): `api/` (routes only),
   `agents/`, `tools/`, `services/`, `repositories/`, `models/`, `schemas/`.
+- All storage goes through the `ContentRepository` protocol (`backend/app/repositories/base.py`).
+  `SQLiteContentRepository` implements it today; a Contentstack/Contentful/Sitecore adapter can
+  implement the same interface later without touching routes or tools.
 
 ```
 cms-content-assistant/
@@ -60,6 +64,15 @@ cd frontend && npm run dev
 Open http://localhost:3000 — the **Backend status** card should show "Healthy".
 The API is also browsable at http://127.0.0.1:8000/docs.
 
+On first start the backend creates `backend/data/cms.db` and loads the seed data. To reset the
+database to the seed (deletes proposals and activity too):
+
+```bash
+cd backend && uv run python -m app.seed_db
+```
+
+See [docs/seed-data.md](docs/seed-data.md) for the dataset and the problems planted in it.
+
 ## Checks
 
 Backend:
@@ -89,8 +102,14 @@ cd frontend && npm run lint && npm run typecheck && npm run build
 | Method | Path | Description |
 |---|---|---|
 | GET | `/api/health` | Liveness + app version, environment, agent provider |
+| GET | `/api/content` | List/search content. Query params: `q`, `category`, `status`, `tag`, `sort` (`updated_desc` \| `updated_asc` \| `title_asc`), `limit` (1–100, default 20), `offset`. Unknown params → 422 |
+| GET | `/api/content/{id}` | Full entry, or 404 |
+
+Search is a case-insensitive substring match over title, body, meta title, meta description, and
+tags. `%` and `_` are matched literally.
 
 ## Limitations (current phase)
 
-- No content, search, tools, agent, or proposals yet.
+- No audit tools, agent, proposals, or content UI yet.
+- Search is substring-based (no stemming, ranking, or semantic search).
 - No authentication (out of scope for the MVP; the backend binds to `127.0.0.1` only).
