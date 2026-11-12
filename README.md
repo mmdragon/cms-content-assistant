@@ -28,6 +28,7 @@ approves it.**
 - [Limitations](#limitations)
 - [Future integrations](#future-integrations)
 - [Troubleshooting](#troubleshooting)
+- [License](#license)
 
 ## Quick start
 
@@ -324,3 +325,7 @@ Seed content is fictional and uses the reserved `.example` domain, so screenshot
 - [docs/BUILD_PROMPTS.md](docs/BUILD_PROMPTS.md): the phased build plan this repo followed
 - [docs/seed-data.md](docs/seed-data.md): dataset and planted problems
 - [docs/claude-provider.md](docs/claude-provider.md): optional Claude provider, billing, setup
+
+## License
+
+[MIT](LICENSE)
