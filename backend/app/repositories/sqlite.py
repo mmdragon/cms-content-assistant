@@ -6,14 +6,15 @@ All SQL lives here. Every query is parameterized; the only dynamic SQL fragments
 
 import json
 import sqlite3
-from collections.abc import Iterable, Iterator, Sequence
-from contextlib import contextmanager
+from collections.abc import Iterable, Sequence
+from contextlib import AbstractContextManager
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from app.models.content import ContentEntry
 from app.repositories.base import ContentPage, ContentQuery, ContentSort
+from app.repositories.db import connect
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS content_entries (
@@ -44,7 +45,8 @@ CREATE TABLE IF NOT EXISTS proposals (
     evidence_excerpt TEXT NOT NULL,
     status           TEXT NOT NULL CHECK (status IN ('pending', 'approved', 'rejected')),
     created_at       TEXT NOT NULL,
-    reviewed_at      TEXT
+    reviewed_at      TEXT,
+    review_note      TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_proposals_status ON proposals(status);
 
@@ -90,27 +92,29 @@ class SQLiteContentRepository:
     def __init__(self, db_path: str | Path) -> None:
         self._db_path = str(db_path)
 
-    @contextmanager
-    def _connect(self) -> Iterator[sqlite3.Connection]:
-        conn = sqlite3.connect(self._db_path, timeout=5.0)
-        conn.row_factory = sqlite3.Row
-        conn.execute("PRAGMA foreign_keys = ON")
-        try:
-            yield conn
-            conn.commit()
-        except Exception:
-            conn.rollback()
-            raise
-        finally:
-            conn.close()
+    @property
+    def db_path(self) -> str:
+        return self._db_path
+
+    def _connect(self) -> AbstractContextManager[sqlite3.Connection]:
+        return connect(self._db_path)
 
     # ---- setup -------------------------------------------------------------
 
     def init_schema(self) -> None:
         if self._db_path != ":memory:":
             Path(self._db_path).parent.mkdir(parents=True, exist_ok=True)
-        with self._connect() as conn:
+        # executescript manages its own transaction, so use a plain connection here.
+        conn = sqlite3.connect(self._db_path)
+        try:
             conn.executescript(SCHEMA)
+            # Lightweight migration for databases created before review_note existed.
+            columns = {r[1] for r in conn.execute("PRAGMA table_info(proposals)")}
+            if "review_note" not in columns:
+                conn.execute("ALTER TABLE proposals ADD COLUMN review_note TEXT")
+                conn.commit()
+        finally:
+            conn.close()
 
     def replace_all(self, entries: Iterable[ContentEntry]) -> int:
         """Delete all content (and dependent rows) and insert `entries`. Used for seeding only."""
