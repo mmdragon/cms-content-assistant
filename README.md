@@ -4,9 +4,9 @@ A local-first, portfolio-quality web app that helps a content editor search a si
 find stale or problematic pages, and review AI-proposed edits. **The assistant never changes content
 without explicit human approval.**
 
-> Status: **Phase 3 — deterministic tools.** 40 seeded pages, six read-only audit tools, a
-> pending-only proposal tool, human approve/reject endpoints, and an activity log. The UI and
-> the mock agent arrive in later phases (see [docs/BUILD_PROMPTS.md](docs/BUILD_PROMPTS.md)).
+> Status: **Phase 4 — user interface.** Content library, page detail, proposal review with
+> before/after diff and approve/reject, and an activity log. The assistant panel is in place; the
+> mock agent that powers it arrives next (see [docs/BUILD_PROMPTS.md](docs/BUILD_PROMPTS.md)).
 
 ## Architecture
 
@@ -60,14 +60,14 @@ Guarantees, each covered by tests:
 ```
 cms-content-assistant/
   backend/     FastAPI + Pydantic, managed with uv
-  frontend/    Next.js 16 + React 19 + TypeScript + Tailwind 4
+  frontend/    Next.js 16 + React 19 + TypeScript + Tailwind 4 (Vitest + Testing Library)
   docs/        Brief, architecture, build prompts
   .env.example
 ```
 
 ## Prerequisites
 
-- **Node.js 20.9+** (developed on 22 LTS)
+- **Node.js 22+**
 - **[uv](https://docs.astral.sh/uv/)** — installs Python 3.12 for you (`uv python install 3.12`)
 
 No API keys, paid services, or CMS accounts are needed.
@@ -96,7 +96,7 @@ cd backend && uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 cd frontend && npm run dev
 ```
 
-Open http://localhost:3000 — the **Backend status** card should show "Healthy".
+Open http://localhost:3000. The header shows **Backend OK** when the API is reachable.
 The API is also browsable at http://127.0.0.1:8000/docs.
 
 On first start the backend creates `backend/data/cms.db` and loads the seed data. To reset the
@@ -107,6 +107,27 @@ cd backend && uv run python -m app.seed_db
 ```
 
 See [docs/seed-data.md](docs/seed-data.md) for the dataset and the problems planted in it.
+
+## Using the app
+
+| Screen | What you can do |
+|---|---|
+| **Content** (`/`) | Search titles, body, metadata, and tags; filter by category and status; sort; paginate. Filters live in the URL, so views can be bookmarked or shared. |
+| **Page detail** (`/content/{id}`) | Read the body (always rendered as plain text, never HTML), see metadata with length checks, and jump to proposals for the page. |
+| **Proposals** (`/proposals`) | Pending / approved / rejected / all tabs. The header badge shows the pending count. |
+| **Proposal review** (`/proposals/{id}`) | Side-by-side or inline word diff, the rationale, and the exact evidence quoted from the page. **Approve and apply** and **Reject** both open a confirmation dialog with an optional note. Approval is disabled if the page changed since the draft. |
+| **Activity** (`/activity`) | Every tool call, proposal, approval, and rejection, filterable by type, with redacted details. |
+| **Assistant** (header button) | Side panel on desktop, full-screen on phones. Not connected yet. |
+
+All screens have loading, empty, and error states, work at phone width, support light and dark
+mode, and are keyboard accessible (skip link, visible focus, labelled controls, native modal
+dialogs, Esc closes the assistant panel).
+
+Until the mock agent lands, you can create proposals to review from a Python shell:
+
+```bash
+cd backend && uv run python -c "from app.config import get_settings; from app.container import build_container; c = build_container(get_settings()); print(c.tools.execute('create_edit_proposal', {'content_id': 'ns-011', 'field_name': 'meta_title', 'proposed_value': 'The Cascade: 4-Bed Two-Story with Loft | Northstar Living', 'rationale': 'Meta title is 74 characters; search results cut off around 60.', 'evidence_excerpt': 'The Cascade Two-Story Floor Plan'}, c.tool_context()).status)"
+```
 
 ## Checks
 
@@ -119,7 +140,7 @@ cd backend && uv run pytest && uv run ruff check . && uv run ruff format --check
 Frontend:
 
 ```bash
-cd frontend && npm run lint && npm run typecheck && npm run build
+cd frontend && npm run lint && npm run typecheck && npm test && npm run build
 ```
 
 ## Configuration
@@ -154,7 +175,8 @@ tags. `%` and `_` are matched literally. Approve and reject are the only non-GET
 
 ## Limitations (current phase)
 
-- No agent or UI for tools/proposals yet; proposals are created through the tool registry
+- The assistant panel is not connected yet; proposals are created through the tool registry
   (the mock agent in Phase 5 will call it).
+- Page bodies are shown as plain text; Markdown is not rendered.
 - Search is substring-based (no stemming, ranking, or semantic search).
 - No authentication (out of scope for the MVP; the backend binds to `127.0.0.1` only).
