@@ -171,3 +171,16 @@ describe("toHistory", () => {
     expect(history[1].content).toHaveLength(2000);
   });
 });
+
+describe("provider banner", () => {
+  it("labels Claude mode as AI-written and shows the model", () => {
+    render(
+      <AppStateProvider>
+        <Conversation provider={{ demoMode: false, model: "claude-opus-5-5" }} />
+      </AppStateProvider>,
+    );
+    expect(screen.getByText(/Claude \(claude-opus-5-5\):/)).toBeTruthy();
+    expect(screen.getByText(/may be wrong/)).toBeTruthy();
+    expect(screen.queryByText(/no AI model is used/)).toBeNull();
+  });
+});

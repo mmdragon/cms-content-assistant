@@ -27,7 +27,7 @@ class Container:
 
     def __post_init__(self) -> None:
         self.agent = AgentService(
-            build_provider(self.settings),
+            build_provider(self.settings, self.tools),
             self.tools,
             self.tool_context,
             max_tool_calls=self.settings.agent_max_tool_calls,

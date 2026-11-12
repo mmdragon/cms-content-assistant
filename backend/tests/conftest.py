@@ -16,7 +16,10 @@ from tests.seed_manifest import SEED_REFERENCE_DATE
 
 @pytest.fixture
 def settings(tmp_path: Path) -> Settings:
+    # Ignore any developer .env so tests never pick up a real provider or key.
     return Settings(
+        _env_file=None,
+        agent_provider="mock",
         environment="test",
         database_path=str(tmp_path / "test.db"),
         audit_reference_date=SEED_REFERENCE_DATE.date(),

@@ -9,3 +9,5 @@ class HealthResponse(BaseModel):
     version: str
     environment: str
     agent_provider: str
+    agent_model: str | None = None
+    demo_mode: bool

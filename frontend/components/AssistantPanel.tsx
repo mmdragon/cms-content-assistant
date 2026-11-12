@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { MAX_MESSAGE_CHARS, api, errorMessage } from "@/lib/api";
+import { useApi } from "@/lib/useApi";
 import type { AgentResponse, ChatMessage } from "@/types/api";
 
 import { useAppState } from "./AppState";
@@ -71,7 +72,32 @@ export function AssistantToggle() {
   );
 }
 
-export function Conversation() {
+export interface ProviderInfo {
+  demoMode: boolean;
+  model: string | null;
+}
+
+const DEMO_PROVIDER: ProviderInfo = { demoMode: true, model: null };
+
+function ProviderBanner({ provider }: { provider: ProviderInfo }) {
+  if (provider.demoMode) {
+    return (
+      <p className="rounded-md bg-violet-50 p-2.5 text-xs text-violet-900 dark:bg-violet-950 dark:text-violet-200">
+        <strong>Demo mode:</strong> responses are rule-based and deterministic — no AI model is used. Every finding
+        cites a page and an exact excerpt, and the assistant can only draft proposals. You approve every change.
+      </p>
+    );
+  }
+  return (
+    <p className="rounded-md bg-sky-50 p-2.5 text-xs text-sky-900 dark:bg-sky-950 dark:text-sky-200">
+      <strong>Claude{provider.model ? ` (${provider.model})` : ""}:</strong> answers are written by an AI model via
+      the Anthropic API and may be wrong. The evidence listed under each answer comes straight from the content
+      store — check it before approving. The assistant can only draft proposals; you approve every change.
+    </p>
+  );
+}
+
+export function Conversation({ provider = DEMO_PROVIDER }: { provider?: ProviderInfo }) {
   const { notifyProposalsChanged } = useAppState();
   const [turns, setTurns] = useState<Turn[]>(loadTurns);
   const [draft, setDraft] = useState("");
@@ -120,11 +146,7 @@ export function Conversation() {
   return (
     <>
       <div className="flex-1 space-y-4 overflow-y-auto p-4 text-sm" aria-live="polite" aria-busy={pending}>
-        <p className="rounded-md bg-violet-50 p-2.5 text-xs text-violet-900 dark:bg-violet-950 dark:text-violet-200">
-          <strong>Demo mode:</strong> responses are rule-based and deterministic — no AI model is used. Every
-          finding cites a page and an exact excerpt, and the assistant can only draft proposals. You approve every
-          change.
-        </p>
+        <ProviderBanner provider={provider} />
 
         {turns.length === 0 && (
           <div>
@@ -240,6 +262,10 @@ export function Conversation() {
 export function AssistantPanel() {
   const { assistantOpen, setAssistantOpen } = useAppState();
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const health = useApi(assistantOpen ? "assistant-provider" : null, (signal) => api.health(signal));
+  const provider: ProviderInfo | undefined = health.data
+    ? { demoMode: health.data.demo_mode, model: health.data.agent_model }
+    : undefined;
 
   useEffect(() => {
     if (!assistantOpen) return;
@@ -271,13 +297,14 @@ export function AssistantPanel() {
           <h2 id="assistant-heading" ref={headingRef} tabIndex={-1} className="font-semibold outline-none">
             Content assistant
           </h2>
-          <Badge tone="violet">Demo mode</Badge>
+          {provider &&
+            (provider.demoMode ? <Badge tone="violet">Demo mode</Badge> : <Badge tone="blue">Claude</Badge>)}
         </div>
         <Button variant="ghost" size="sm" onClick={() => setAssistantOpen(false)} aria-label="Close assistant">
           ✕
         </Button>
       </div>
-      <Conversation />
+      <Conversation provider={provider} />
     </aside>
   );
 }

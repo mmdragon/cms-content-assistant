@@ -4,9 +4,10 @@ A local-first, portfolio-quality web app that helps a content editor search a si
 find stale or problematic pages, and review AI-proposed edits. **The assistant never changes content
 without explicit human approval.**
 
-> Status: **Phase 5 — mock agent.** The assistant works end to end in demo mode with no API key:
-> it answers a fixed set of requests with evidence-backed findings and drafts pending proposals.
-> An optional Claude provider is the next phase (see [docs/BUILD_PROMPTS.md](docs/BUILD_PROMPTS.md)).
+> Status: **Phase 6 — optional Claude provider.** The assistant runs in free demo mode by default.
+> It can optionally use Claude via the Anthropic API (paid, needs your own API key); see
+> [docs/claude-provider.md](docs/claude-provider.md). Final review is next
+> (see [docs/BUILD_PROMPTS.md](docs/BUILD_PROMPTS.md)).
 
 ## Architecture
 
@@ -70,7 +71,8 @@ cms-content-assistant/
 - **Node.js 22+**
 - **[uv](https://docs.astral.sh/uv/)** — installs Python 3.12 for you (`uv python install 3.12`)
 
-No API keys, paid services, or CMS accounts are needed.
+No API keys, paid services, or CMS accounts are needed. The optional Claude provider needs an
+Anthropic API key and is billed per token; it is off unless you turn it on.
 
 ## Setup
 
@@ -172,11 +174,12 @@ cd frontend && npm run lint && npm run typecheck && npm test && npm run build
 | `CMS_ENVIRONMENT` | backend | `development` | Reported by `/api/health` |
 | `CMS_DATABASE_PATH` | backend | `data/cms.db` | SQLite file (from Phase 2) |
 | `CMS_CORS_ORIGINS` | backend | `http://localhost:3000,...` | Browser origins allowed to call the API directly |
-| `CMS_AGENT_PROVIDER` | backend | `mock` | Demo mode; no key needed |
+| `CMS_AGENT_PROVIDER` | backend | `mock` | `mock` = demo mode, no key. `claude` = Anthropic API (paid) |
 | `CMS_AUDIT_REFERENCE_DATE` | backend | today | "Today" for staleness audits. `.env.example` pins `2026-11-12` so demo results match the seed |
 | `CMS_SITE_BASE_URL` | backend | `https://www.northstarliving.example` | Absolute links on this origin count as internal |
 | `CMS_TOOL_TIMEOUT_SECONDS` | backend | `5` | Per-tool-call timeout |
 | `CMS_AGENT_MAX_TOOL_CALLS` | backend | `25` | Tool-call budget for one assistant turn |
+| `CMS_AGENT_PROVIDER` = `claude` + `ANTHROPIC_API_KEY` | backend | off | Use Claude instead of the demo agent. Paid; see [docs/claude-provider.md](docs/claude-provider.md) for all `CMS_CLAUDE_*` settings |
 | `BACKEND_URL` | frontend (`frontend/.env.local`) | `http://127.0.0.1:8000` | Proxy target for `/api/*` |
 
 ## API

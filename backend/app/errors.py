@@ -19,3 +19,9 @@ class ConflictError(DomainError):
 
 class InvalidInputError(DomainError):
     code = "invalid_arguments"
+
+
+class ProviderUnavailableError(DomainError):
+    """The configured model provider can't serve the request (credentials, quota, network)."""
+
+    code = "provider_unavailable"

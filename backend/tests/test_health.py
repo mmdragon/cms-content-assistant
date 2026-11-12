@@ -9,7 +9,16 @@ def test_health_returns_ok(client: TestClient) -> None:
     assert body["status"] == "ok"
     assert body["environment"] == "test"
     assert body["agent_provider"] == "mock"
-    assert set(body) == {"status", "app", "version", "environment", "agent_provider"}
+    assert set(body) == {
+        "status",
+        "app",
+        "version",
+        "environment",
+        "agent_provider",
+        "agent_model",
+        "demo_mode",
+    }
+    assert body["demo_mode"] is True and body["agent_model"] is None
 
 
 def test_cors_allows_local_frontend(client: TestClient) -> None:

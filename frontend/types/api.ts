@@ -6,6 +6,8 @@ export interface HealthResponse {
   version: string;
   environment: string;
   agent_provider: string;
+  agent_model: string | null;
+  demo_mode: boolean;
 }
 
 export const CATEGORIES = ["community", "home", "blog", "faq", "landing"] as const;
