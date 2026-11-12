@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app import __version__
 from app.api.activity import router as activity_router
+from app.api.assistant import router as assistant_router
 from app.api.content import router as content_router
 from app.api.errors import register_error_handlers
 from app.api.health import router as health_router
@@ -41,7 +42,13 @@ def create_app(settings: Settings | None = None, clock: Clock = utc_now) -> Fast
     )
     register_error_handlers(app)
 
-    for router in (health_router, content_router, proposals_router, activity_router):
+    for router in (
+        health_router,
+        content_router,
+        proposals_router,
+        activity_router,
+        assistant_router,
+    ):
         app.include_router(router, prefix="/api")
     return app
 

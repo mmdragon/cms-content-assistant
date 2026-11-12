@@ -96,3 +96,47 @@ export interface ActivityEvent {
   status: string;
   created_at: string;
 }
+
+// ---- Assistant (mirrors backend/app/agents/base.py) -----------------------
+
+export interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export interface Finding {
+  content_id: string;
+  title: string;
+  issue: string;
+  field: string;
+  excerpt: string;
+  reason: string;
+  recommendation: string;
+  severity: "high" | "medium" | "low";
+}
+
+export interface ToolCallRecord {
+  tool_name: string;
+  arguments: Record<string, unknown>;
+  status: string;
+  duration_ms: number;
+  error: string | null;
+}
+
+export interface ProposalRef {
+  proposal_id: string;
+  content_id: string;
+  title: string;
+  field_name: EditableField;
+}
+
+export interface AgentResponse {
+  provider: string;
+  demo_mode: boolean;
+  intents: string[];
+  message: string;
+  findings: Finding[];
+  proposals: ProposalRef[];
+  tool_calls: ToolCallRecord[];
+  notes: string[];
+}

@@ -1,5 +1,7 @@
 import type {
   ActivityEvent,
+  AgentResponse,
+  ChatMessage,
   ContentEntry,
   ContentQuery,
   ContentSummary,
@@ -120,7 +122,20 @@ export const api = {
     params: { event_type?: EventType; limit?: number; offset?: number },
     signal?: AbortSignal,
   ) => request<Page<ActivityEvent>>(`/api/activity${buildQuery(params)}`, { signal }),
+
+  chat: (messages: ChatMessage[], signal?: AbortSignal) => chat(messages, signal),
 };
+
+export const MAX_CHAT_MESSAGES = 20;
+export const MAX_MESSAGE_CHARS = 2000;
+
+export function chat(messages: ChatMessage[], signal?: AbortSignal) {
+  return request<AgentResponse>("/api/assistant/chat", {
+    method: "POST",
+    body: { messages: messages.slice(-MAX_CHAT_MESSAGES) },
+    signal,
+  });
+}
 
 // Kept for the existing health card.
 export const fetchHealth = api.health;

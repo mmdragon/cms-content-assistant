@@ -4,9 +4,9 @@ A local-first, portfolio-quality web app that helps a content editor search a si
 find stale or problematic pages, and review AI-proposed edits. **The assistant never changes content
 without explicit human approval.**
 
-> Status: **Phase 4 — user interface.** Content library, page detail, proposal review with
-> before/after diff and approve/reject, and an activity log. The assistant panel is in place; the
-> mock agent that powers it arrives next (see [docs/BUILD_PROMPTS.md](docs/BUILD_PROMPTS.md)).
+> Status: **Phase 5 — mock agent.** The assistant works end to end in demo mode with no API key:
+> it answers a fixed set of requests with evidence-backed findings and drafts pending proposals.
+> An optional Claude provider is the next phase (see [docs/BUILD_PROMPTS.md](docs/BUILD_PROMPTS.md)).
 
 ## Architecture
 
@@ -117,17 +117,39 @@ See [docs/seed-data.md](docs/seed-data.md) for the dataset and the problems plan
 | **Proposals** (`/proposals`) | Pending / approved / rejected / all tabs. The header badge shows the pending count. |
 | **Proposal review** (`/proposals/{id}`) | Side-by-side or inline word diff, the rationale, and the exact evidence quoted from the page. **Approve and apply** and **Reject** both open a confirmation dialog with an optional note. Approval is disabled if the page changed since the draft. |
 | **Activity** (`/activity`) | Every tool call, proposal, approval, and rejection, filterable by type, with redacted details. |
-| **Assistant** (header button) | Side panel on desktop, full-screen on phones. Not connected yet. |
+| **Assistant** (header button) | Chat with the demo assistant. Side panel on desktop, full-screen on phones. History is kept for the browser session. |
 
 All screens have loading, empty, and error states, work at phone width, support light and dark
 mode, and are keyboard accessible (skip link, visible focus, labelled controls, native modal
 dialogs, Esc closes the assistant panel).
 
-Until the mock agent lands, you can create proposals to review from a Python shell:
+## Demo mode and example prompts
 
-```bash
-cd backend && uv run python -c "from app.config import get_settings; from app.container import build_container; c = build_container(get_settings()); print(c.tools.execute('create_edit_proposal', {'content_id': 'ns-011', 'field_name': 'meta_title', 'proposed_value': 'The Cascade: 4-Bed Two-Story with Loft | Northstar Living', 'rationale': 'Meta title is 74 characters; search results cut off around 60.', 'evidence_excerpt': 'The Cascade Two-Story Floor Plan'}, c.tool_context()).status)"
-```
+The assistant runs on a **deterministic, rule-based mock agent** (`backend/app/agents/mock.py`).
+No model or API key is involved, and the UI labels it as demo mode. It matches each message against a
+fixed set of supported requests, calls the allowlisted tools, and builds its reply only from tool
+output, so every finding cites a page id, field, and verbatim excerpt.
+
+| Try | What happens |
+|---|---|
+| *Find pages that still mention the discontinued Northstar Classic plan. Suggest updated wording, but do not apply any changes.* | Lists the 6 pages (8 places) with excerpts and drafts 8 **pending** proposals swapping in “Northstar Care”. Notes that the ns-021 slug also contains the old name. Nothing is changed. |
+| *Which pages still use the old brand name Northstar Homes?* | 3 pages, with excerpts. Add “suggest a fix” to draft proposals. |
+| *Which pages have missing or overly long metadata?* | 11 issues across 11 pages, with counts per type. |
+| *List pages not updated in the last 18 months.* | 6 pages, oldest first. Durations like “90 days” or “2 years” are understood. |
+| *Are there duplicate titles?* | 2 groups (4 pages). |
+| *Check for broken internal links.* | 4 links to slugs that don't exist. |
+| *Tell me about ns-027* | Page summary and its issues, including a warning that the page contains a prompt-injection attempt, which the assistant ignores. |
+| *Run a full audit* | All four checks at once. |
+| *Which pages mention "splash pad"?* | Search for any quoted phrase. |
+| *Approve all pending proposals* | Refused: only an editor can approve, from the Proposals screen. |
+
+Anything else gets a short help message instead of a guess. The agent:
+
+- drafts proposals only for name replacements it can make mechanically, and says that other details
+  in those sentences still need checking. It won't invent meta descriptions or "freshen" stale pages;
+- skips fields that already have a pending proposal, so repeating a request doesn't duplicate drafts;
+- stops after 25 tool calls and 10 drafts per message (configurable), and says so;
+- treats “do not apply” as a negation, not a write request.
 
 ## Checks
 
@@ -154,6 +176,7 @@ cd frontend && npm run lint && npm run typecheck && npm test && npm run build
 | `CMS_AUDIT_REFERENCE_DATE` | backend | today | "Today" for staleness audits. `.env.example` pins `2026-11-12` so demo results match the seed |
 | `CMS_SITE_BASE_URL` | backend | `https://www.northstarliving.example` | Absolute links on this origin count as internal |
 | `CMS_TOOL_TIMEOUT_SECONDS` | backend | `5` | Per-tool-call timeout |
+| `CMS_AGENT_MAX_TOOL_CALLS` | backend | `25` | Tool-call budget for one assistant turn |
 | `BACKEND_URL` | frontend (`frontend/.env.local`) | `http://127.0.0.1:8000` | Proxy target for `/api/*` |
 
 ## API
@@ -169,14 +192,17 @@ cd frontend && npm run lint && npm run typecheck && npm test && npm run build
 | POST | `/api/proposals/{id}/reject` | Reject a pending proposal. Optional body `{"note": "..."}` |
 | GET | `/api/activity` | Activity log (`event_type`, `limit`, `offset`), newest first |
 | GET | `/api/tools` | The agent's tool allowlist with JSON schemas |
+| POST | `/api/assistant/chat` | One assistant turn. Body `{"messages": [{"role": "user" \| "assistant", "content": "..."}]}` (max 20 messages, 2,000 chars each, last must be `user`). Returns `message`, `findings`, `proposals` (pending drafts), `tool_calls`, `notes`, `demo_mode` |
 
 Search is a case-insensitive substring match over title, body, meta title, meta description, and
-tags. `%` and `_` are matched literally. Approve and reject are the only non-GET endpoints.
+tags. `%` and `_` are matched literally. Approve and reject are the only endpoints that change
+content; the chat endpoint can at most create pending proposals.
 
 ## Limitations (current phase)
 
-- The assistant panel is not connected yet; proposals are created through the tool registry
-  (the mock agent in Phase 5 will call it).
+- The demo agent understands a fixed set of phrasings; it is a keyword router, not a language
+  model. Only the latest message is interpreted (history is sent for a future model provider).
+- It drafts only mechanical name replacements and does not verify facts beyond the content store.
 - Page bodies are shown as plain text; Markdown is not rendered.
 - Search is substring-based (no stemming, ranking, or semantic search).
 - No authentication (out of scope for the MVP; the backend binds to `127.0.0.1` only).

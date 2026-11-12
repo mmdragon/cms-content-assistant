@@ -1,7 +1,8 @@
 """Wires repositories, services, and the tool registry for one app instance."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
+from app.agents.service import AgentService, build_provider
 from app.config import Settings
 from app.repositories.activity import SQLiteActivityRepository
 from app.repositories.proposals import SQLiteProposalRepository
@@ -22,6 +23,15 @@ class Container:
     audit: AuditService
     proposals: ProposalService
     tools: ToolRegistry
+    agent: AgentService = field(init=False)
+
+    def __post_init__(self) -> None:
+        self.agent = AgentService(
+            build_provider(self.settings),
+            self.tools,
+            self.tool_context,
+            max_tool_calls=self.settings.agent_max_tool_calls,
+        )
 
     def tool_context(self) -> ToolContext:
         return ToolContext(

@@ -29,6 +29,8 @@ class Settings(BaseSettings):
     # leave unset to use the real current date.
     audit_reference_date: date | None = None
     tool_timeout_seconds: float = Field(default=5.0, gt=0, le=60)
+    # Upper bound on tool calls in a single assistant turn.
+    agent_max_tool_calls: int = Field(default=25, ge=1, le=100)
 
     @property
     def cors_origin_list(self) -> list[str]:

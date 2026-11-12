@@ -296,6 +296,10 @@ def test_no_http_route_writes_content_directly(client: TestClient) -> None:
         if method.upper() not in {"GET", "HEAD", "OPTIONS"}
     }
     assert writes == {
+        # The only routes that change content state, both human review actions.
         ("/api/proposals/{proposal_id}/approve", "POST"),
         ("/api/proposals/{proposal_id}/reject", "POST"),
+        # Runs the assistant, which can only read and create *pending* proposals
+        # (covered in test_agent.py).
+        ("/api/assistant/chat", "POST"),
     }
