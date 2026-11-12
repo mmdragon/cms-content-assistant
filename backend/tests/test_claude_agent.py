@@ -363,6 +363,12 @@ def test_provider_errors_become_clear_503s(
     assert body["code"] == "provider_unavailable" and fragment in body["detail"]
     assert "bad key" not in body["detail"]
 
+    # Failures are recorded in the activity log as error events.
+    errors = client.get("/api/activity", params={"event_type": "error"}).json()["items"]
+    assert len(errors) == 1
+    assert errors[0]["status"] == "provider_unavailable" and errors[0]["actor"] == "system"
+    assert fragment in errors[0]["details"]["message"]
+
 
 def test_mock_is_default_and_never_builds_a_client(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch

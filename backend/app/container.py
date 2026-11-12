@@ -31,6 +31,7 @@ class Container:
             self.tools,
             self.tool_context,
             max_tool_calls=self.settings.agent_max_tool_calls,
+            audit=self.audit,
         )
 
     def tool_context(self) -> ToolContext:

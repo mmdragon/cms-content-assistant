@@ -11,7 +11,7 @@ export default function ActivityPage() {
     <>
       <PageHeader
         title="Activity log"
-        description="Every tool call, proposal, approval, and rejection, newest first. Secrets are redacted."
+        description="Every tool call, proposal, approval, rejection, and assistant error, newest first. Secrets are redacted."
       />
       <Suspense fallback={<LoadingState label="Loading activity…" />}>
         <ActivityLog />

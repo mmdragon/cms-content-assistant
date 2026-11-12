@@ -312,3 +312,20 @@ def test_every_agent_tool_call_is_logged(client: TestClient) -> None:
 )
 def test_chat_request_validation(client: TestClient, payload: dict[str, Any]) -> None:
     assert client.post("/api/assistant/chat", json=payload).status_code == 422
+
+
+def test_unexpected_agent_failure_is_logged_as_error(
+    container: Container, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def boom(self: MockAgent, request: ChatRequest, tools: ToolRunner) -> Any:
+        raise RuntimeError("secret internal detail")
+
+    monkeypatch.setattr(MockAgent, "respond", boom)
+    request = ChatRequest(messages=[ChatMessage(role="user", content="hi")])
+    with pytest.raises(RuntimeError):
+        container.agent.chat(request)
+
+    events, _ = container.activity_repo.list()
+    assert events[0].event_type.value == "error"
+    assert events[0].details["message"] == "The assistant failed unexpectedly."
+    assert "secret internal detail" not in str(events[0].details)

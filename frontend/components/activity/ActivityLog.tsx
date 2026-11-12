@@ -42,6 +42,7 @@ function summary(event: ActivityEvent): string {
     if (result && "proposal_id" in result) return `Created ${String(result.proposal_id)}`;
     return "Completed";
   }
+  if (event.event_type === "error" && d.message) return String(d.message);
   if (d.note) return `Note: ${String(d.note)}`;
   if (d.rationale) return String(d.rationale);
   if (d.content_id && d.field_name) return `${String(d.content_id)} · ${String(d.field_name)}`;
@@ -116,7 +117,7 @@ export function ActivityLog() {
         <LoadingState label="Loading activity…" />
       ) : data.items.length === 0 ? (
         <EmptyState title="No activity yet">
-          Tool calls, proposals, approvals, and rejections are recorded here as they happen.
+          Tool calls, proposals, approvals, rejections, and errors are recorded here as they happen.
         </EmptyState>
       ) : (
         <ol className={cx("divide-y divide-zinc-200 dark:divide-zinc-800", loading && "opacity-60")} aria-busy={loading}>

@@ -1,13 +1,18 @@
+import logging
 from collections.abc import Callable
 
 from app.agents.base import AgentProvider, AgentResponse, ChatRequest, ToolRunner
 from app.agents.claude import ClaudeAgent, default_client_factory
 from app.agents.mock import MockAgent
 from app.config import Settings
+from app.errors import ProviderUnavailableError
+from app.models.activity import Actor, EventType
+from app.services.audit import AuditService
 from app.tools.base import ToolContext
 from app.tools.registry import ToolRegistry
 
 ContextFactory = Callable[[], ToolContext]
+logger = logging.getLogger(__name__)
 
 
 def build_provider(settings: Settings, registry: ToolRegistry) -> AgentProvider:
@@ -35,7 +40,9 @@ class AgentService:
         registry: ToolRegistry,
         context_factory: ContextFactory,
         max_tool_calls: int,
+        audit: AuditService,
     ) -> None:
+        self._audit = audit
         self._provider = provider
         self._registry = registry
         self._context_factory = context_factory
@@ -51,4 +58,25 @@ class AgentService:
 
     def chat(self, request: ChatRequest) -> AgentResponse:
         runner = ToolRunner(self._registry, self._context_factory(), self._max_tool_calls)
-        return self._provider.respond(request, runner)
+        try:
+            return self._provider.respond(request, runner)
+        except ProviderUnavailableError as exc:
+            self._log_error("provider_unavailable", exc.message, runner)
+            raise
+        except Exception:
+            logger.exception("Assistant turn failed")
+            self._log_error("error", "The assistant failed unexpectedly.", runner)
+            raise
+
+    def _log_error(self, status: str, message: str, runner: ToolRunner) -> None:
+        self._audit.record(
+            EventType.ERROR,
+            actor=Actor.SYSTEM,
+            status=status,
+            details={
+                "source": "assistant",
+                "provider": self._provider.name,
+                "message": message,
+                "tool_calls_before_error": len(runner.calls),
+            },
+        )
